@@ -12,9 +12,11 @@ Needed:
     -isEmpty(pos, width, height)
 """
 
-#Allows us to switch the game state of a board.
-#Of course a tie or draw flipped would just be itself.
 def opposite(letter):
+    """
+    Allows us to switch the game state of a board.
+    Of course a tie or draw flipped would just be itself.
+    """
     if letter == 'w':
         return 'l'
     if letter == 'l':
@@ -22,11 +24,11 @@ def opposite(letter):
     return letter
 
 
-"""
-Assigning all the wins/loses
-value = (boardState, (depthAway, gameState, remoteness, (children))
-"""
 def traceBackUpMap(value):
+    """
+    Assigning all the wins/loses
+    value = (boardState, (depthAway, gameState, remoteness, (children))
+    """
     retVal = []
     #If we are not at the correct boardlevel, or we have one
     #of the conflicted mappings, move past and just append retval with
@@ -53,37 +55,37 @@ def traceBackUpMap(value):
     #Returning list because Spark doesn't have an emit keyword.
     return retVal
 
-"""
-Possible merging of our values going down and values coming up
-Conflict between:
-    possibleValue1: (depthAway, gameState, remoteness, (children)) <--- our new design
-    possibleValue2: (boardLevel, (Children)) <--- our old design on the way to get primitives
-"""
 
 #Spark gives us the values of keys that repeat
 #For instance, if we have (5, ('a')) and (5, ('b')), the reduce stage would receive
 #either ('a') for value1 or value2 and ('b') for the other.
 #So we have to ensure we do associative and commutative operations.
 def traceBackUpReduce(value1, value2):
+    """
+    Possible merging of our values going down and values coming up
+    Conflict between:
+        possibleValue1: (depthAway, gameState, remoteness, (children)) <--- our new design
+        possibleValue2: (boardLevel, (Children)) <--- our old design on the way to get primitives
+    """
     #Checks to see if value1 or value2 is a value pair from when we were mapping downards
     #to get the primitives.
 
     #value[1] is either gameState or (Children) if you look at the comments above for
     #possibleValue1/2
 
-    if type(value1[1]) is tuple and type(value2[1]) is str:
+    if isinstance(value1[1], tuple) and isinstance(value2[1], str):
         parentLst = []
 
         #Add the children of one value to a communal child list
         value1List = value1[1]
         for val in value1List:
             parentLst.append(val)
-        
+
         #Add the children of the other value to the communal child list
         value2List = value2[3]
         for val in value2List:
             parentLst.append(val)
-        
+
         #Returning a value that coincides with the new design when we traverse up
         #We keep value1's boardLevel to keep the original boardLevel of the board state
         #We take the game state from value2 since it is the new design
@@ -91,7 +93,7 @@ def traceBackUpReduce(value1, value2):
         #We include the parentLst as well.
         tempTuple = (value1[0], value2[1], value2[2], tuple(parentLst))
         return tempTuple
-    elif type(value2[1]) is tuple and type(value1[1]) is str:
+    elif isinstance(value2[1], tuple) and isinstance(value1[1], str):
         parentLst = []
 
         #Add the children of one value to a communal child list
@@ -180,11 +182,11 @@ def traceBackUpReduce(value1, value2):
         return tempTuple
 
 
-"""
-Getting all the primitives
-value = (boardState, (depthAway, (children)))
-"""
 def bfsMap(value):
+    """
+    Getting all the primitives
+    value = (boardState, (depthAway, (children)))
+    """
     retVal = []
     #Check to make sure that we only find the childrens of relevant gameBoards
     #boardLevel helps as a way to filter what tier we are on
@@ -223,15 +225,16 @@ def bfsMap(value):
 
     return retVal
 
-"""
-possibleValue1: (depthAway, gameState, remoteness, (parents)) <--Only when we hit a primitive
-possibleValue2: (boardLevel, (parents)) <--Typical on mapping down to primitives
-"""
 def bfsReduce(value1, value2):
+    """
+    possibleValue1: (depthAway, gameState, remoteness, (parents)) <--Only when we hit a primitive
+    possibleValue2: (boardLevel, (parents)) <--Typical on mapping down to primitives
+    """
+
     #Checks to see if value1 or value2 is a value pair for a primitve
     #value[1] is either gameState or (Children) if you look at the comments above for
     #possibleValue1/2
-    if type(value1[1]) is tuple and type(value2[1]) is tuple:
+    if isinstance(value1[1], tuple) and isinstance(value2[1], tuple):
         allParents = []
 
         #Cycle through both parentLists and store in a communal list
@@ -249,7 +252,7 @@ def bfsReduce(value1, value2):
     #If we encounter a value having a primitive design structure then we have to cover
     #Those edge cases
     else:
-        if type(value1[1]) is tuple:
+        if isinstance(value1[1], tuple):
             allParents = []
 
             #Cycle through the parents of both structures and add to a communal list
@@ -260,7 +263,7 @@ def bfsReduce(value1, value2):
             
             #Format the new value to the primitive design specification
             return (value2[0], value2[1], value2[2], tuple(allParents))
-        elif type(value2[0]) is tuple:
+        elif isinstance(value2[0], tuple):
             allParents = []
 
             #Cycle through the parents of both structures and add to a communal list
@@ -276,16 +279,15 @@ def bfsReduce(value1, value2):
             #conditionals
             return ("blank", -1, ())
 
-
-"""
-UNDERCONSTRUCTION! ~Shouldn't be using remoteness as the conditional filter
-    -Should be using boardLevel. Look at traceBackUpMap
-
-
-Assigning all the wins/loses via undoMove <-- function that is useful for some games
-value = (boardState, (w/t/l, remoteValue))
-"""
 def traceBackUpMapList(value):
+    """
+    UNDERCONSTRUCTION! ~Shouldn't be using remoteness as the conditional filter
+        -Should be using boardLevel. Look at traceBackUpMap
+
+
+    Assigning all the wins/loses via undoMove <-- function that is useful for some games
+    value = (boardState, (w/t/l, remoteValue))
+    """
     retVal = []
     #If we are not at the correct remoteness level, or we have one
     #of the conflicted mapping, move past and just append retval with
@@ -309,15 +311,15 @@ def traceBackUpMapList(value):
 
     return retVal
 
-"""
-SHOULD WORK. No promises though. Wasn't extensively tested.
-
-Possible merging of our values going down and values coming up
-Conflict between:
-    possibleValue1: (w/t/l, remoteValue)
-"""
 
 def traceBackUpReduceList(value1, value2):
+    """
+    SHOULD WORK. No promises though. Wasn't extensively tested.
+
+    Possible merging of our values going down and values coming up
+    Conflict between:
+        possibleValue1: (w/t/l, remoteValue)
+    """
     #Checks to see if one of the values is the information
     #from our mapping down
     # if remoteness == value1[1] and remoteness == value2[1]:
@@ -364,12 +366,12 @@ def traceBackUpReduceList(value1, value2):
     tempTuple = (boardState, remote)
     return tempTuple
 
-"""
-Should work just fine.
-
-value = (board state, boardlevel)
-"""
 def bfsMapList(value):
+    """
+    Should work just fine.
+
+    value = (board state, boardlevel)
+    """
     retVal = []
     if value[1] == boardLevel:
         if not currMod.isPrimitive(value[0], width, height):
@@ -387,18 +389,20 @@ def bfsMapList(value):
 
 def bfsReduceList(value1, value2):
     #All we care about is the minimum boardLevel, but that will change if we get the new
-    #primitive design. 
+    #primitive design.
     #FORGOT TO TAKE INTO ACCOUNT THE PRIMITIVE DESIGN STRUCTURES
     return min(value1, value2)
 
 
-#Function used to write all the primitives to a certain file
 def filteringPrimitives(value):
+    """Function used to write all the primitives to a certain file"""
     return currMod.isPrimitive(value[0], width, height)
 
-#Prints an rdd for us. Not entirely sure how this works. 
-#Typically used after the first map/reduce down to the primitives
 def printBFSFunction(rdd, fName):
+    """
+    Prints an rdd for us. Not entirely sure how this works.
+    Typically used after the first map/reduce down to the primitives
+    """
     #Running through the list and formatting it as level and then board set
     outputFile = open(fName, "w")
     writer = lambda line: outputFile.write(str(line) + "\n")
@@ -412,8 +416,8 @@ def printBFSFunction(rdd, fName):
     for elem in compiledArr:
         writer(elem)
 
-#Same as printBFSFunction except we focous on the gamestate
 def printBFSListFunction(rdd, fName):
+    """Same as printBFSFunction except we focous on the gamestate"""
     #Running through the list and formatting it as level and then board set
     outputFile = open(fName, "w")
     writer = lambda line: outputFile.write(str(line) + "\n")
@@ -423,8 +427,8 @@ def printBFSListFunction(rdd, fName):
     for elem in compiledArr:
         writer(elem)
 
-#Used after the entire solving process.
 def printTraceBackFunction(rdd, fName):
+    """Used after the entire solving process."""
     outputFile = open(fName, "w")
     writer = lambda line: outputFile.write(str(line) + "\n")
     compiledArr = rdd.collect()
@@ -432,19 +436,19 @@ def printTraceBackFunction(rdd, fName):
     for elem in compiledArr:
         writer(elem)
 
-#Use this to help determin when there are no new elements in our rdd
 def relevantSet(value):
+    """ Use this to help determin when there are no new elements in our rdd """
     return value[1][0] == boardLevel
 
-#Same idea as relevantSet but we take into account the design for the listRDDs
 def relevantSetList(value):
+    """Same idea as relevantSet but we take into account the design for the listRDDs """
     return value[1] == boardLevel
 
-"""
-We need to pass into terminal the width, height, filename without .py, package name,
-local[#comps]
-"""
 def main():
+    """
+    We need to pass into terminal the width, height, filename without .py, package name,
+    local[#comps]
+    """
     #Current board level (tier) in our bfs
     global boardLevel
     boardLevel = 0
@@ -464,7 +468,7 @@ def main():
 
     #Number of local[#ofcomps]
     sc = SparkContext(sys.argv[5], "python")
-    
+
     blankBoard = currMod.initiateBoard(width, height)
 
     rdd = [(tuple(blankBoard), (boardLevel, ()))]
@@ -472,7 +476,6 @@ def main():
 
     num = 1
     maxBoardLevel = 0
-    i = 0
 
     while num:
         maxBoardLevel = boardLevel
@@ -480,8 +483,7 @@ def main():
         rdd = rdd.reduceByKey(bfsReduce)
         num = rdd.filter(relevantSet).count()
         boardLevel += 1
-        i += 1
-    
+
     #Output after BFS downwards
     # printBFSFunction(rdd, "Results/" + sys.argv[4] + "FirstMappingOutput.txt")
 
