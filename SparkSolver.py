@@ -7,6 +7,21 @@ class SparkSolver:
         self.generate_moves = generate_moves
         self.primitive = primitive
 
+    def generate_graph(self):
+        """
+        Returns level, gamestate, [(parent, move)]
+        """
+        pass
+
+    def upward_traversal(self):
+        """
+        TODO: think of better name.
+        """
+        pass
+
+    def save_to_db(self):
+        pass
+
     def solve(self):
         pass
 
