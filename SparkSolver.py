@@ -1,10 +1,12 @@
 from pyspark import SparkContext
 
 class SparkSolver:
-    def __init__():
-        pass
+    def __init__(self, do_move, generate_moves, primitive):
+        self.do_move = do_move
+        self.generate_moves = generate_moves
+        self.primitive = primitive
 
-    def solve():
+    def solve(self):
         pass
 
 def main():
