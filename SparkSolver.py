@@ -2,6 +2,7 @@ from pyspark import SparkContext
 
 class SparkSolver:
     def __init__(self, do_move, generate_moves, primitive):
+        self.sc = SparkContext("local", "SparkSolver")
         self.do_move = do_move
         self.generate_moves = generate_moves
         self.primitive = primitive
