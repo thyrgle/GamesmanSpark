@@ -16,7 +16,6 @@ def graph(gen_moves):
     return func_wrapper
 
 class SparkSolver:
-
     def __init__(self, generate_moves, state):
         self.sc = SparkContext("local", "SparkSolver")
         self.generate_moves = generate_moves
@@ -46,8 +45,9 @@ class SparkSolver:
         pass
 
 def main():
-    test_gen = graph(lambda x: [State(2), State(2)])
-    solver = SparkSolver(test_gen, State(2))
+    ret_false = "lambda: False"
+    test_gen = graph(lambda x: [State(2, ret_false), State(2, ret_false)])
+    solver = SparkSolver(test_gen, State(2, ret_false))
     solver.generate_graph()
 
 if __name__ == '__main__':
