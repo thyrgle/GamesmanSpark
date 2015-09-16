@@ -1,3 +1,5 @@
+import csv
+
 WIN = 1
 TIE = 0
 LOSS = -1
@@ -10,3 +12,6 @@ class State:
     def __init__(self, rep, resolution):
         self.rep = rep
         self.resolution = resolution
+        with open('resolutions.csv', 'a') as out:
+            writer = csv.writer(out)
+            writer.writerow((self.rep, self.get_resolution()))

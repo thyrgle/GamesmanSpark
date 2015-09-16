@@ -3,11 +3,6 @@ import csv
 import state
 from state import State
 
-GET_STATE = {state.UNKNOWN : "unknown", 
-             state.LOSS : "loss",
-             state.TIE : "tie",
-             state.WIN : "win"}
-
 def graph(gen_moves):
     """ 
     Add game nodes to internal structure using this decorator
@@ -17,7 +12,7 @@ def graph(gen_moves):
         with open('results.csv', 'w') as out:
             csv_out = csv.writer(out)
             for move in moves:
-                csv_out.writerow((state.rep, move.rep, GET_STATE[move.get_resolution()]))
+                csv_out.writerow((state.rep, move.rep))
         return moves
     return func_wrapper
 
