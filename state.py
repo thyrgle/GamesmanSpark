@@ -1,13 +1,12 @@
-import uuid
+WIN = 1
+TIE = 0
+LOSS = -1
+UNKNOWN = -2
 
 class State:
-    def is_primitive(self):
-        return eval("("+self.primitive+")()")
+    def get_resolution(self):
+        return eval("("+self.resolution+")()")
 
-    def get_id(self):
-        return self.uuid
-
-    def __init__(self, representation, primitive):
-        self.representation = representation
-        self.primitive = primitive
-        self.uuid = uuid.uuid1()
+    def __init__(self, rep, resolution):
+        self.rep = rep
+        self.resolution = resolution
