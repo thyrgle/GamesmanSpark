@@ -2,7 +2,7 @@ import uuid
 
 class State:
     def is_primitive(self):
-        return eval(self.primitive+"()")
+        return eval("("+self.primitive+")()")
 
     def get_id(self):
         return self.uuid

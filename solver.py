@@ -2,6 +2,8 @@ from pyspark import SparkContext
 import csv
 from state import State
 
+GET_STATE = {True : "loss", False : "undef"}
+
 def graph(gen_moves):
     """ 
     Add game nodes to internal structure using this decorator
@@ -9,9 +11,10 @@ def graph(gen_moves):
     def func_wrapper(state):
         moves = gen_moves(state)
         with open('results.csv', 'w') as out:
-            csv_out=csv.writer(out)
+            csv_out = csv.writer(out)
             for move in moves:
-                csv_out.writerow((state.get_id(), move.get_id()))
+                res = GET_STATE[move.is_primitive()]
+                csv_out.writerow((state.get_id(), move.get_id(), res))
         return moves
     return func_wrapper
 
@@ -32,20 +35,8 @@ class SparkSolver:
                               .flatMap(self.generate_moves)
             self.queue = children.filter(not_primitive).collect()
 
-    def upward_traversal(self):
-        """
-        TODO: think of better name.
-        """
-        pass
-
-    def save_to_db(self):
-        pass
-
-    def solve(self):
-        pass
-
 def main():
-    ret_false = "lambda: False"
+    ret_false = "lambda: True"
     test_gen = graph(lambda x: [State(2, ret_false), State(2, ret_false)])
     solver = SparkSolver(test_gen, State(2, ret_false))
     solver.generate_graph()
