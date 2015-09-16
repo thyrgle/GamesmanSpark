@@ -1,9 +1,9 @@
 import csv
 
-WIN = 1
-TIE = 0
-LOSS = -1
-UNKNOWN = -2
+WIN = "win"
+TIE = "tie"
+LOSE = "lose"
+UNDECIDED = "undecided"
 
 class State:
     def get_resolution(self):
