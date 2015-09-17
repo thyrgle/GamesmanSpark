@@ -1,5 +1,4 @@
 from pyspark import SparkContext
-import csv
 import state
 from state import State
 
