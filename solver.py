@@ -21,7 +21,10 @@ class SparkSolver:
 
     def generate_graph(self):
         """
-        Returns level, gamestate, [(parent, move)]
+        Creates edges for a given graph.
+        Returns:
+            [(K, V)]: A list of parent child edges represented
+                      by tuples of K, V pairings.
         """
         not_primitive = lambda x: x.get_resolution() == state.UNDECIDED
         edges = self.sc.parallelize([])
@@ -31,7 +34,7 @@ class SparkSolver:
             children = new_edges.map(lambda e: e[1])
             self.queue = children.filter(not_primitive)
         edges.saveAsTextFile('edges')
-
+    
 def main():
     ret_false = "lambda: -1"
     test_gen = lambda x: [State('2', ret_false), State('2', ret_false)]
