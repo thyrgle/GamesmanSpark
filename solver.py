@@ -30,7 +30,7 @@ class SparkSolver:
             edges.union(new_edges)
             children = new_edges.map(lambda e: e[1])
             self.queue = children.filter(not_primitive)
-        edges.saveAsTextFile('edges.csv')
+        edges.saveAsTextFile('edges')
 
 def main():
     ret_false = "lambda: -1"

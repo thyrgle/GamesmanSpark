@@ -52,5 +52,5 @@ coverage.xml
 # Sphinx documentation
 docs/_build/
 
-# CSV stuff:
-*.csv
+# Don't store edges
+edges/
