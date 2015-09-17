@@ -13,6 +13,10 @@ class SparkSolver:
     def graph(self, gen_moves):
         """ 
         Add game nodes to internal structure using this decorator
+        Returns:
+            [(K, V)]: A list of parent child nodes (children gen-
+                      erated by the gen_moves function called on
+                      the parent.
         """
         def func_wrapper(state):
             moves = gen_moves(state)
