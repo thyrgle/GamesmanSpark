@@ -2,48 +2,41 @@ from pyspark import SparkContext
 import state
 from state import State
 
+UNDECIDED, LOSS, TIE, WIN = range(4)
 
-class SparkSolver:
-    def __init__(self, generate_moves, st):
-        self.sc = SparkContext("local", "SparkSolver")
-        self.generate_moves = self.graph(generate_moves)
-        self.state = st
-        self.queue = self.sc.parallelize([st])
+def solve(do_move, get_state, generate_moves, init_position):
+    sc = SparkContext("local", "GamesmanSpark") #TODO: Move out of local
 
-    def graph(self, gen_moves):
-        """ 
-        Add game nodes to internal structure using this decorator
-        Returns:
-            [(K, V)]: A list of parent child nodes (children gen-
-                      erated by the gen_moves function called on
-                      the parent.
-        """
-        def func_wrapper(state):
-            moves = gen_moves(state)
-            return [(state, move) for move in moves]
-        return func_wrapper
+    value = sc.parallelize(())
+    ready = sc.parallelize(())
+    rev = sc.parallelize(())
+    up = sc.parallelize(())
+    unknowns = sc.parallelize([init_position])
 
-    def generate_graph(self):
-        """
-        Creates edges for a given graph.
-        Returns:
-            [(K, V)]: A list of parent child edges represented
-                      by tuples of K, V pairings.
-        """
-        not_primitive = lambda x: x.get_resolution() == state.UNDECIDED
-        edges = self.sc.parallelize([])
-        while not self.queue.isEmpty():
-            new_edges = self.queue.flatMap(self.generate_moves)
-            edges.union(new_edges)
-            children = new_edges.map(lambda e: e[1])
-            self.queue = children.filter(not_primitive)
-        edges.saveAsTextFile('edges')
+    #Add remoteness to get_state
+    get_state = value_map(get_state)
+
+    while True:
+        rev = rev.union(unknowns.flatMap(lambda p: [(do_move(p,m), p) for m in generate_moves(p)]))
+        # unkonwns map (pos, prim) union with value -> partition by values
+        value = value.union(unknowns.flatMap(lambda pos: (pos, get_state(pos))))
+        ready = value.filter(lambda partition: partition[0] == UNDECIDED)
+        up = up.union(unknowns.flatMap(lambda p: [(c, p) for c in generate_moves(p)]).map(do_move))
+        value = value.union(up)
+
+    value.saveAsTextFile("value")
     
+def value_map(get_state):
+    def wrapper(pos):
+        s = get_state(pos)
+        return s, -1 if s == UNDECIDED else 0
+    return wrapper
+
 def main():
-    ret_false = "lambda: -1"
-    test_gen = lambda x: [State('2', ret_false), State('2', ret_false)]
-    solver = SparkSolver(test_gen, State('3', ret_false))
-    solver.generate_graph()
+    ret_false = lambda: -1
+    test_gen = lambda x: ['2', '2']
+    do_move = lambda x, y: x
+    solve(do_move, ret_false, test_gen, '3',)
 
 if __name__ == '__main__':
     main()
