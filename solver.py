@@ -9,6 +9,7 @@ def solve(do_move, get_state, generate_moves, init_position):
     unknowns = sc.parallelize([init_position])
     resolved = sc.parallelize(())
     up       = sc.parallelize(())
+    locality = 0
 
     while not unknowns.isEmpty():
         #Create a list of (parent, (child, child_result)) tuples.
@@ -16,16 +17,28 @@ def solve(do_move, get_state, generate_moves, init_position):
         #child is a particular generated move from the parent,
         #and child_result is the current game state of the child:
         #win, loss, tie, draw, or unknown.
-        children = unknowns.flatMap(lambda p: [(p, (m, get_state(m))) for m in generate_moves(p)])
+        children = unknowns.flatMap(lambda p: [((p, locality), (m, get_state(m))) for m in generate_moves(p)])
+
+        #We wish to construct a tree of all known states to solve the game.
+        #At this moment, filter out the states which are primitive and add
+        #those to the tree since they are already known.
+        first_pass_resolve = children.filter(lambda group: group[1][1] != UNDECIDED)
+
+        #Now construct a mapping so that first_pass_resolve type changes
+        #from [(parent, locality), (m, get_state(m))] -> ((m, locality), get_state(m))
+        first_pass_resolve = first_pass_resolve.map(lambda group: ((group[1][0], group[0][1]+1), group[1][1]))
+        resolved = resolved.union(first_pass_resolve)
+
         #Now that we have these lists, group everything by parent nodes.
         #This will create a structure as follows:
-        #[(parent1, [(child, state), (child, state) ... (child, state)]),
-        # (parent2, [(child, state), (child, state) ... (child, state)])
+        #[((parent1, locality) [(child, state), (child, state) ... (child, state)]),
+        #  (parent2 locality), [(child, state), (child, state) ... (child, state)])
         #   .
         #   .
         #   .
-        #  (parentn, [(child, state), (child, state) ... (child, state)])]
+        #  (parentn, locality), [(child, state), (child, state) ... (child, state)])]
         up = children.groupByKey()
+
         #We may be able to determine a win or loss at this point.
         #To elaborate, consider the following:
         #Consider we have a game that has either WIN, or LOSS. No TIES or
@@ -51,15 +64,18 @@ def solve(do_move, get_state, generate_moves, init_position):
         #One last note: We must make UNKNOWN the maximum value of all values
         #given. (Do you see why?)
         child_max = lambda x: max(x, key=itemgetter(1))[1]
-        #freshly_resolved may contain invalid pairings. Consider them"UNKNOWN
+        #freshly_resolved may contain invalid pairings. Consider them "UNKNOWN
         #resolved" pairings.
         freshly_resolved = up.map(lambda group: (group[0], child_max(group[1])))
         #We filter those out and add them to resolved the "completely resolved"
         #to the resolved RDD.
         resolved = resolved.union(freshly_resolved.filter(lambda pairing: pairing[1] < UNDECIDED))
-        #Add the pairings that are still 
+        #Add the pairings that are still unknown
         unknowns = freshly_resolved.filter(lambda pairing: pairing[1] == UNDECIDED).map(lambda pair: pair[0])
-        
+        locality += 1
+
+        #Repeat until there are no unknowns.
+    resolved = resolved.sortByKey(True, None, lambda pair: pair[1])
     resolved.saveAsTextFile("value")
     
 def main():
