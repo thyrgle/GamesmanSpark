@@ -5,10 +5,20 @@ LOSS, TIE, WIN, UNDECIDED = range(4)
 
 def solve(do_move, get_state, generate_moves, init_position):
     sc = SparkContext("local", "GamesmanSpark") #TODO: Move out of local
-
+    
+    #unkowns contains a list of positions.
+    #It initially starts starts with the initial game board position
     unknowns = sc.parallelize([init_position])
+
+    #The "solutions" to the game state.
+    #Of the form ((position, locality), result) where locality is the
+    #"distance" from the initial position
     resolved = sc.parallelize(())
+
+    #Used for backtracking up the game tree.
     up       = sc.parallelize(())
+
+    #Keeps track of the locality of nodes.
     locality = 0
 
     while not unknowns.isEmpty():
