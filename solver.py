@@ -62,7 +62,7 @@ def solve(do_move, get_state, generate_moves, init_position):
         #operator.
         #In this case:
         #(parent, [WIN, LOSS, ..., WIN]) -> WIN or LOSS or ... or WIN
-        # -> WIN.
+        # -> ~WIN -> LOSS
         #Now consider generalizing this to a series of series of finite
         #series of states > 3. In this case we must take into account
         #TIE and DRAW as well. As it can be shown, the max(x,y) is a
@@ -73,7 +73,9 @@ def solve(do_move, get_state, generate_moves, init_position):
         #them in an RDD.
         #One last note: We must make UNKNOWN the maximum value of all values
         #given. (Do you see why?)
-        child_max = lambda x: max(x, key=itemgetter(1))[1]
+        negation_lookup = { 3:3, 2:0, 1:1, 0:2 }
+        negate = lambda state: negation_lookup[state]
+        child_max = lambda x: negate(max(x, key=itemgetter(1))[1])
         #freshly_resolved may contain invalid pairings. Consider them "UNKNOWN
         #resolved" pairings.
         freshly_resolved = up.map(lambda group: (group[0], child_max(group[1])))
