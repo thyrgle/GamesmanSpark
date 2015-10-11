@@ -116,7 +116,7 @@ def solve(get_state, generate_moves, init_position):
             break
         #Repeat until there are no unknowns.
     print "haithere", resolved.take(1000000)
-    resolved.saveAsTextFile("value")
+    resolved.coalesce(1, True).saveAsTextFile("value")
 
 def game_state(x):
     if x == 0:
