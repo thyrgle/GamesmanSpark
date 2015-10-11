@@ -3,51 +3,81 @@ from operator import itemgetter
 
 LOSS, TIE, WIN, UNDECIDED = range(4)
 
-def solve(do_move, get_state, generate_moves, init_position):
+def safe_min(x,y):
+    if x == None:
+        return y
+    if y == None:
+        return x
+    return min(x, y)
+
+def solve(get_state, generate_moves, init_position):
     sc = SparkContext("local", "GamesmanSpark") #TODO: Move out of local
     
-    #unkowns contains a list of positions.
-    #It initially starts starts with the initial game board position
-    unknowns = sc.parallelize([init_position])
+    #Every new iteration 
+    #only keeps the current children.
+    frontier = sc.parallelize([init_position])
 
     #The "solutions" to the game state.
-    #Of the form ((position, locality), result) where locality is the
-    #"distance" from the initial position
+    #Of the form (position, result)
     resolved = sc.parallelize(())
 
     #Used for backtracking up the game tree.
     up       = sc.parallelize(())
 
-    #Keeps track of the locality of nodes.
-    locality = 0
+    negation_lookup = [2, 1, 0, 3]
+    negate = lambda state: negation_lookup[state]
+    child_max = lambda x: negate(max(x, key=itemgetter(1))[1])
 
-    while not unknowns.isEmpty():
+    while True:
         #Create a list of (parent, (child, child_result)) tuples.
         #Where parent is the current game state in question,
         #child is a particular generated move from the parent,
         #and child_result is the current game state of the child:
         #win, loss, tie, draw, or unknown.
-        children = unknowns.flatMap(lambda p: [((p, locality), (m, get_state(m))) for m in generate_moves(p)])
+        children = frontier.flatMap(lambda p: [(p, (m, get_state(m))) for m in generate_moves(p)])
+        #Get rid of None children.
+        children = children.filter(lambda group: group[1][0] != None)
 
         #We wish to construct a tree of all known states to solve the game.
         #At this moment, filter out the states which are primitive and add
         #those to the tree since they are already known.
-        first_pass_resolve = children.filter(lambda group: group[1][1] != UNDECIDED)
-
-        #Now construct a mapping so that first_pass_resolve type changes
-        #from [(parent, locality), (m, get_state(m))] -> ((m, locality), get_state(m))
-        first_pass_resolve = first_pass_resolve.map(lambda group: ((group[1][0], group[0][1]+1), group[1][1]))
+        #nodes -> [(child, state) ... ]
+        nodes = children.map(lambda child: child[1])
+        #Now get the nodes we can immediately resolve.
+        first_pass_resolve = nodes.filter(lambda node: node[1] != UNDECIDED)
+        #Add these to resolved.
         resolved = resolved.union(first_pass_resolve)
+        #Frontier is the newest unknown children.
+        frontier = nodes.filter(lambda node: node[1] == UNDECIDED).map(lambda node: node[0])
+
+        
+        #Then map from (child, (parent, state)) -> (parent, (child,state))
+        #Then group by key.
 
         #Now that we have these lists, group everything by parent nodes.
         #This will create a structure as follows:
-        #[((parent1, locality) [(child, state), (child, state) ... (child, state)]),
-        #  (parent2 locality), [(child, state), (child, state) ... (child, state)])
+        #[(parent1, [(child, state), (child, state) ... (child, state)]),
+        # (parent2, [(child, state), (child, state) ... (child, state)])
         #   .
         #   .
         #   .
-        #  (parentn, locality), [(child, state), (child, state) ... (child, state)])]
-        up = children.groupByKey()
+        # (parentn, [(child, state), (child, state) ... (child, state)])]
+        up = up.union(children.groupByKey())
+        # Take [(parent, [(child, state)]] -> (parent, (child, state))
+        update = up.flatMapValues(lambda x: x)
+        #Create a RDD of (child, (parent, state)) from up. Then merge this
+        #with resolved. 
+        update = update.map(lambda group: (group[1][0], (group[0], group[1][1])))
+        #(child, ((parent, update_state), resolved_state))
+        update = update.fullOuterJoin(resolved).distinct()
+        #In the case the state has no parent.
+        update = update.filter(lambda group: group[1][0] != None)
+        #Get most updated state. (child, ((parent, state), state)) -> (parent, (child, state))
+        update = update.map(lambda g: (g[1][0][0], (g[0], safe_min(g[1][0][1], g[1][1]))))
+        #Remove duplicate keys.
+        update = update.reduceByKey(lambda x,y: (x[0], safe_min(x[1], y[1])))
+
+        up = update.groupByKey()
 
         #We may be able to determine a win or loss at this point.
         #To elaborate, consider the following:
@@ -73,28 +103,36 @@ def solve(do_move, get_state, generate_moves, init_position):
         #them in an RDD.
         #One last note: We must make UNKNOWN the maximum value of all values
         #given. (Do you see why?)
-        negation_lookup = { 3:3, 2:0, 1:1, 0:2 }
-        negate = lambda state: negation_lookup[state]
-        child_max = lambda x: negate(max(x, key=itemgetter(1))[1])
         #freshly_resolved may contain invalid pairings. Consider them "UNKNOWN
         #resolved" pairings.
         freshly_resolved = up.map(lambda group: (group[0], child_max(group[1])))
         #We filter those out and add them to resolved the "completely resolved"
         #to the resolved RDD.
-        resolved = resolved.union(freshly_resolved.filter(lambda pairing: pairing[1] < UNDECIDED))
-        #Add the pairings that are still unknown
-        unknowns = freshly_resolved.filter(lambda pairing: pairing[1] == UNDECIDED).map(lambda pair: pair[0])
-        locality += 1
-
+        freshly_decided = freshly_resolved.filter(lambda pairing: pairing[1] != UNDECIDED)
+        resolved = resolved.union(freshly_decided)
+        resolved = resolved.distinct()
+        up = up.subtractByKey(resolved)
+        if up.isEmpty():
+            break
         #Repeat until there are no unknowns.
-    resolved = resolved.sortByKey(True, None, lambda pair: pair[1])
+    print "haithere", resolved.take(1000000)
     resolved.saveAsTextFile("value")
-    
+
+def game_state(x):
+    if x == 0:
+        return LOSS
+    else:
+        return UNDECIDED
+
+def generate_moves(x):
+    if x >= 2:
+        return [x-1, x-2]
+    if x == 1:
+        return [x-1]
+    return None
+
 def main():
-    ret_false = lambda x: 0
-    test_gen = lambda x: ['2', '1']
-    do_move = lambda x, y: x
-    solve(do_move, ret_false, test_gen, '3',)
+    solve(game_state, generate_moves, 4)
 
 if __name__ == '__main__':
     main()
