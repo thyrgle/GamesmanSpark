@@ -52,5 +52,5 @@ coverage.xml
 # Sphinx documentation
 docs/_build/
 
-# Don't store edges
-edges/
+# Don't remember values
+value/
