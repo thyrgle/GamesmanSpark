@@ -48,14 +48,13 @@ def solve(get_state, generate_moves, init_position):
         #At this moment, filter out the states which are primitive and add
         #those to the tree since they are already known.
         #nodes -> [(child, state) ... ]
-        nodes = children.map(lambda child: child[1])
+        nodes = children.map(lambda child: child[1]).distinct()
         #Now get the nodes we can immediately resolve.
         first_pass_resolve = nodes.filter(lambda node: node[1] != UNDECIDED)
         #Add these to resolved.
         resolved = resolved.union(first_pass_resolve)
         #Frontier is the newest unknown children.
         frontier = nodes.filter(lambda node: node[1] == UNDECIDED).map(lambda node: node[0])
-
         
         #Then map from (child, (parent, state)) -> (parent, (child,state))
         #Then group by key.
@@ -75,7 +74,7 @@ def solve(get_state, generate_moves, init_position):
         #with resolved. 
         update = update.map(lambda group: (group[1][0], (group[0], group[1][1])))
         #(child, ((parent, update_state), resolved_state))
-        update = update.fullOuterJoin(resolved).distinct()
+        update = update.leftOuterJoin(resolved).distinct()
         #In the case the state has no parent.
         update = update.filter(lambda group: group[1][0] != None)
         #Get most updated state. (child, ((parent, state), state)) -> (parent, (child, state))
