@@ -10,8 +10,14 @@ def safe_min(x,y):
         return x
     return min(x, y)
 
+def quiet_logs( sc ):
+  logger = sc._jvm.org.apache.log4j
+  logger.LogManager.getLogger("org"). setLevel( logger.Level.ERROR )
+  logger.LogManager.getLogger("akka").setLevel( logger.Level.ERROR )
+
 def solve(get_state, generate_moves, init_position):
     sc = SparkContext("local", "GamesmanSpark") #TODO: Move out of local
+    quiet_logs(sc)
     
     #Every new iteration 
     #only keeps the current children.
