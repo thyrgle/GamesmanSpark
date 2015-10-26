@@ -136,7 +136,7 @@ def generate_moves(x):
     return None
 
 def main():
-    solve(game_state, generate_moves, 4)
+    solve(game_state, generate_moves, 6)
 
 if __name__ == '__main__':
     main()
