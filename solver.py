@@ -44,8 +44,6 @@ def solve(get_state, generate_moves, init_position):
         #and child_result is the current game state of the child:
         #win, loss, tie, draw, or unknown.
         children = frontier.flatMap(lambda p: [(p, (m, get_state(m))) for m in generate_moves(p)])
-        #Get rid of None children.
-        children = children.filter(lambda group: group[1][0] != None)
         #We wish to construct a tree of all known states to solve the game.
         #At this moment, filter out the states which are primitive and add
         #those to the tree since they are already known.
@@ -77,8 +75,6 @@ def solve(get_state, generate_moves, init_position):
         update = update.map(lambda group: (group[1][0], (group[0], group[1][1])))
         #(child, ((parent, update_state), resolved_state))
         update = update.leftOuterJoin(freshly_decided)
-        #In the case the state has no parent.
-        update = update.filter(lambda group: group[1][0] != None)
         #Get most updated state. (child, ((parent, state), state)) -> (parent, (child, state))
         update = update.map(lambda g: (g[1][0][0], (g[0], safe_min(g[1][0][1], g[1][1]))))
 
