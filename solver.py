@@ -27,6 +27,9 @@ def solve(get_state, generate_moves, init_position):
     #Of the form (position, result)
     resolved = sc.parallelize(())
 
+    #The "frontier equivalent of resolved
+    freshly_decided = sc.parallelize(())
+
     #Used for backtracking up the game tree.
     up       = sc.parallelize(())
 
@@ -43,12 +46,11 @@ def solve(get_state, generate_moves, init_position):
         children = frontier.flatMap(lambda p: [(p, (m, get_state(m))) for m in generate_moves(p)])
         #Get rid of None children.
         children = children.filter(lambda group: group[1][0] != None)
-
         #We wish to construct a tree of all known states to solve the game.
         #At this moment, filter out the states which are primitive and add
         #those to the tree since they are already known.
         #nodes -> [(child, state) ... ]
-        nodes = children.map(lambda child: child[1]).distinct()
+        nodes = children.map(lambda child: child[1])
         #Now get the nodes we can immediately resolve.
         first_pass_resolve = nodes.filter(lambda node: node[1] != UNDECIDED)
         #Add these to resolved.
@@ -74,13 +76,11 @@ def solve(get_state, generate_moves, init_position):
         #with resolved. 
         update = update.map(lambda group: (group[1][0], (group[0], group[1][1])))
         #(child, ((parent, update_state), resolved_state))
-        update = update.leftOuterJoin(resolved).distinct()
+        update = update.leftOuterJoin(freshly_decided)
         #In the case the state has no parent.
         update = update.filter(lambda group: group[1][0] != None)
         #Get most updated state. (child, ((parent, state), state)) -> (parent, (child, state))
         update = update.map(lambda g: (g[1][0][0], (g[0], safe_min(g[1][0][1], g[1][1]))))
-        #Remove duplicate keys.
-        update = update.reduceByKey(lambda x,y: (x[0], safe_min(x[1], y[1])))
 
         up = update.groupByKey()
 
@@ -115,12 +115,11 @@ def solve(get_state, generate_moves, init_position):
         #to the resolved RDD.
         freshly_decided = freshly_resolved.filter(lambda pairing: pairing[1] != UNDECIDED)
         resolved = resolved.union(freshly_decided)
-        resolved = resolved.distinct()
-        up = up.subtractByKey(resolved)
+        up = up.subtractByKey(freshly_decided)
         if up.isEmpty():
             break
         #Repeat until there are no unknowns.
-    resolved.coalesce(1, True).saveAsTextFile("value")
+    resolved.distinct().coalesce(1, True).saveAsTextFile("value")
 
 def game_state(x):
     if x == 0:
