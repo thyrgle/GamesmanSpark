@@ -69,9 +69,9 @@ def solve(get_state, generate_moves, init_position):
         #   .
         #   .
         # (parentn, [(child, state), (child, state) ... (child, state)])]
-        up = up.union(children.groupByKey())
         # Take [(parent, [(child, state)]] -> (parent, (child, state))
         update = up.flatMapValues(lambda x: x)
+        update = update.union(children)
         #Create a RDD of (child, (parent, state)) from up. Then merge this
         #with resolved. 
         update = update.map(lambda group: (group[1][0], (group[0], group[1][1])))
