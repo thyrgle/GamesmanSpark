@@ -21,15 +21,15 @@ def solve(get_state, generate_moves, init_position):
     
     #Every new iteration 
     #only keeps the current children.
-    frontier = sc.parallelize([init_position])
+    frontier = sc.parallelize([init_position]).setName('frontier')
 
     #The "solutions" to the game state.
     #Of the form (position, result)
-    resolved = sc.parallelize(())
+    resolved = sc.parallelize(()).setName('resolved')
 
     #Used for backtracking up the game tree.
-    up       = sc.parallelize(())
-
+    up       = sc.parallelize(()).setName('up')
+    
     negation_lookup = [2, 1, 0, 3]
     negate = lambda state: negation_lookup[state]
     child_max = lambda x: negate(max(x, key=itemgetter(1))[1])
@@ -41,6 +41,7 @@ def solve(get_state, generate_moves, init_position):
         #and child_result is the current game state of the child:
         #win, loss, tie, draw, or unknown.
         children = frontier.flatMap(lambda p: [(p, (m, get_state(m))) for m in generate_moves(p)])
+        children.setName('children')
         #Get rid of None children.
         children = children.filter(lambda group: group[1][0] != None)
 
@@ -49,8 +50,10 @@ def solve(get_state, generate_moves, init_position):
         #those to the tree since they are already known.
         #nodes -> [(child, state) ... ]
         nodes = children.map(lambda child: child[1]).distinct()
+        nodes.setName('nodes')
         #Now get the nodes we can immediately resolve.
         first_pass_resolve = nodes.filter(lambda node: node[1] != UNDECIDED)
+        first_pass_resolve.setName('first_pass_resolve')
         #Add these to resolved.
         resolved = resolved.union(first_pass_resolve)
         #Frontier is the newest unknown children.
@@ -70,6 +73,7 @@ def solve(get_state, generate_moves, init_position):
         up = up.union(children.groupByKey())
         # Take [(parent, [(child, state)]] -> (parent, (child, state))
         update = up.flatMapValues(lambda x: x)
+        update.setName('update')
         #Create a RDD of (child, (parent, state)) from up. Then merge this
         #with resolved. 
         update = update.map(lambda group: (group[1][0], (group[0], group[1][1])))
@@ -111,15 +115,17 @@ def solve(get_state, generate_moves, init_position):
         #freshly_resolved may contain invalid pairings. Consider them "UNKNOWN
         #resolved" pairings.
         freshly_resolved = up.map(lambda group: (group[0], child_max(group[1])))
+        freshly_resolved.setName('freshly_resolved')
         #We filter those out and add them to resolved the "completely resolved"
         #to the resolved RDD.
         freshly_decided = freshly_resolved.filter(lambda pairing: pairing[1] != UNDECIDED)
+        freshly_decided.setName('freshly_decided')
         resolved = resolved.union(freshly_decided)
         resolved = resolved.distinct()
         up = up.subtractByKey(resolved)
+        #Repeat until there are no unknowns.
         if up.isEmpty():
             break
-        #Repeat until there are no unknowns.
     resolved.coalesce(1, True).saveAsTextFile("value")
 
 def game_state(x):
