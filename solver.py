@@ -11,9 +11,9 @@ def safe_min(x,y):
     return min(x, y)
 
 def quiet_logs( sc ):
-  logger = sc._jvm.org.apache.log4j
-  logger.LogManager.getLogger("org"). setLevel( logger.Level.ERROR )
-  logger.LogManager.getLogger("akka").setLevel( logger.Level.ERROR )
+    logger = sc._jvm.org.apache.log4j
+    logger.LogManager.getLogger("org"). setLevel( logger.Level.ERROR )
+    logger.LogManager.getLogger("akka").setLevel( logger.Level.ERROR )
 
 def solve(get_state, generate_moves, init_position):
     sc = SparkContext("local", "GamesmanSpark") #TODO: Move out of local
@@ -22,16 +22,20 @@ def solve(get_state, generate_moves, init_position):
     #Every new iteration 
     #only keeps the current children.
     frontier = sc.parallelize([init_position])
+    frontier.setName('frontier')
 
     #The "solutions" to the game state.
     #Of the form (position, result)
     resolved = sc.parallelize(())
+    resolved.setName('resolved')
 
     #The "frontier equivalent of resolved
     freshly_decided = sc.parallelize(())
+    freshly_decided.setName('freshly_decided')
 
     #Used for backtracking up the game tree.
     up       = sc.parallelize(())
+    up.setName('up')
 
     negation_lookup = [2, 1, 0, 3]
     negate = lambda state: negation_lookup[state]
@@ -44,13 +48,16 @@ def solve(get_state, generate_moves, init_position):
         #and child_result is the current game state of the child:
         #win, loss, tie, draw, or unknown.
         children = frontier.flatMap(lambda p: [(p, (m, get_state(m))) for m in generate_moves(p)])
+        children.setName('children')
         #We wish to construct a tree of all known states to solve the game.
         #At this moment, filter out the states which are primitive and add
         #those to the tree since they are already known.
         #nodes -> [(child, state) ... ]
         nodes = children.map(lambda child: child[1])
+        nodes.setName('nodes')
         #Now get the nodes we can immediately resolve.
         first_pass_resolve = nodes.filter(lambda node: node[1] != UNDECIDED)
+        first_pass_resolve.setName('first_pass_resolve')
         #Add these to resolved.
         resolved = resolved.union(first_pass_resolve)
         #Frontier is the newest unknown children.
@@ -69,6 +76,7 @@ def solve(get_state, generate_moves, init_position):
         # (parentn, [(child, state), (child, state) ... (child, state)])]
         # Take [(parent, [(child, state)]] -> (parent, (child, state))
         update = up.flatMapValues(lambda x: x)
+        update.setName('update')
         update = update.union(children)
         #Create a RDD of (child, (parent, state)) from up. Then merge this
         #with resolved. 
@@ -107,6 +115,7 @@ def solve(get_state, generate_moves, init_position):
         #freshly_resolved may contain invalid pairings. Consider them "UNKNOWN
         #resolved" pairings.
         freshly_resolved = up.map(lambda group: (group[0], child_max(group[1])))
+        freshly_resolved.setName('freshly_resolved')
         #We filter those out and add them to resolved the "completely resolved"
         #to the resolved RDD.
         freshly_decided = freshly_resolved.filter(lambda pairing: pairing[1] != UNDECIDED)
